@@ -5,7 +5,7 @@ import { getDefaultConfigValue } from 'yargs-options';
 import { deepPatch } from 'schema/deepmerge';
 import schemaObject from 'schema/imported/manifest';
 import themeSchemaObject from 'schema/imported/theme';
-import messagesSchemaObject from 'schema/messages';
+import messagesSchemaObject from 'schema/i18n_messages';
 import {
   DEPRECATED_MANIFEST_PROPERTIES,
   MANIFEST_VERSION_DEFAULT,
@@ -196,7 +196,7 @@ export class SchemaValidator {
    *   An optional parameter with a set of custom schema data for the i18n messages json
    *   files (to be used in unit tests if necessary).
    *   If not passed the SchemaValidator instance defaults to the schema data exported
-   *   from `schema/messages`.
+   *   from `schema/i18n_messages`.
    */
   constructor(validatorOptions) {
     this._options = validatorOptions;
@@ -380,40 +380,12 @@ export class SchemaValidator {
     if (!this._localeValidator) {
       this._localeValidator = this._validator.compile({
         ...this.messagesSchemaObject,
-        $id: 'messages',
-        $ref: '#/types/WebExtensionMessages',
+        $id: 'i18nMessages',
+        $ref: '#/types/WebExtensionI18nMessages',
       });
     }
 
     return this._localeValidator;
-  }
-
-  get validateSitePermission() {
-    this._lazyInit();
-
-    if (!this._sitepermissionValidator) {
-      // Like with langpacks, we don't want additional properties in dictionaries,
-      // and there is no separate schema file.
-      // Uses ``deepPatch`` (instead of deepmerge) because we're patching a
-      // complicated schema instead of simply merging them together.
-      this._sitepermissionValidator = this._validator.compile({
-        ...deepPatch(this.schemaObject, {
-          types: {
-            WebExtensionSitePermissionsManifest: {
-              $merge: {
-                with: {
-                  additionalProperties: false,
-                },
-              },
-            },
-          },
-        }),
-        $id: 'sitepermission-manifest',
-        $ref: '#/types/WebExtensionSitePermissionsManifest',
-      });
-    }
-
-    return this._sitepermissionValidator;
   }
 
   _compileAddonValidator(validator) {
@@ -805,15 +777,6 @@ export const validateDictionary = (manifestData, validatorOptions = {}) => {
   const errors = filterErrors(validator.validateDictionary.errors);
   isValid = errors?.length > 0 ? isValid : true;
   validateDictionary.errors = errors;
-  return isValid;
-};
-
-export const validateSitePermission = (manifestData, validatorOptions = {}) => {
-  const validator = getValidator(validatorOptions);
-  let isValid = validator.validateSitePermission(manifestData);
-  const errors = filterErrors(validator.validateSitePermission.errors);
-  isValid = errors?.length > 0 ? isValid : true;
-  validateSitePermission.errors = errors;
   return isValid;
 };
 

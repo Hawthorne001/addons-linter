@@ -51,7 +51,7 @@
 <td>openDialog called with non-literal parameter.</td>
 </tr>
 <tr>
-<td><code>UNEXPECTED_GLOGAL_ARG</code></td>
+<td><code>UNEXPECTED_GLOBAL_ARG</code></td>
 <td>warning</td>
 <td>Unexpected global passed as an argument.</td>
 </tr>
@@ -262,7 +262,7 @@
 </thead>
 <tbody>
 <tr>
-<td>FLUENT_INVALID</td>
+<td><code>FLUENT_INVALID</code></td>
 <td>warning</td>
 <td>Invalid fluent template file.</td>
 </tr>
@@ -571,12 +571,12 @@
 <tr>
 <td><code>APPLICATIONS_INVALID</code></td>
 <td>error</td>
-<td>The <code>applications</code> property is no longer accepted in Manifest Version 3 and above.</td>
+<td>The <code>applications</code> property is no longer accepted in Manifest Version 3 and above</td>
 </tr>
 <tr>
 <td><code>VERSION_FORMAT_DEPRECATED</code></td>
 <td>warning</td>
-<td>The version string should be simplified.</td>
+<td>The version string should be simplified</td>
 </tr>
 <tr>
 <td><code>VERSION_FORMAT_INVALID</code></td>
@@ -584,9 +584,19 @@
 <td>The version string is not valid because its format is too complex.</td>
 </tr>
 <tr>
-<td><code>MANIFEST_V3_FIREFOX_ANDROID_LIMITATIONS</code></td>
+<td><code>INCOGNITO_SPLIT_UNSUPPORTED</code></td>
 <td>warning</td>
-<td>The extension is marked as compatible with a Firefox for Android version that doesn't fully support Manifest Version 3</td>
+<td>The incognito &quot;split&quot; value is unsupported in Firefox</td>
+</tr>
+<tr>
+<td><code>ADMIN_INSTALL_ONLY_PROP_RESERVED</code></td>
+<td>error</td>
+<td>The <code>browser_specific_settings.gecko.admin_install_only</code> property is reserved and can only be used in enterprise add-ons</td>
+</tr>
+<tr>
+<td><code>ADMIN_INSTALL_ONLY_REQUIRED</code></td>
+<td>error</td>
+<td>The <code>browser_specific_settings.gecko.admin_install_only</code> property must be set to &quot;true&quot; in an enterprise add-on</td>
 </tr>
 </tbody>
 </table>

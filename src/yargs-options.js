@@ -37,6 +37,12 @@ const options = {
     type: 'boolean',
     default: false,
   },
+  enterprise: {
+    describe:
+      'Treat the input file (or directory) as an enterprise extension (implies --self-hosted)',
+    type: 'boolean',
+    default: false,
+  },
   privileged: {
     describe: 'Treat the input file (or directory) as a privileged extension',
     type: 'boolean',
@@ -64,12 +70,6 @@ const options = {
       'Set a custom maximum allowed value for the manifest_version property',
     type: 'number',
     default: 3,
-    requiresArg: true,
-  },
-  'scan-file': {
-    alias: ['f'],
-    describe: 'Scan a selected file',
-    type: 'string',
     requiresArg: true,
   },
   'disable-linter-rules': {

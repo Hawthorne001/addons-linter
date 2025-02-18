@@ -185,7 +185,11 @@
         "power",
         "responsiveness",
         "cpufreq",
-        "bandwidth"
+        "bandwidth",
+        "memory",
+        "tracing",
+        "sandbox",
+        "flows"
       ]
     },
     "supports": {

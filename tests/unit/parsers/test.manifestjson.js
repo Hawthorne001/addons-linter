@@ -17,7 +17,6 @@ import {
   validManifestJSON,
   validDictionaryManifestJSON,
   validLangpackManifestJSON,
-  validSitePermissionManifestJSON,
   validStaticThemeManifestJSON,
   getStreamableIO,
   EMPTY_PNG,
@@ -361,28 +360,6 @@ describe('ManifestJSONParser', () => {
             Android 100, which was released before version 113 introduced
             support for "browser_specific_settings.gecko_android".`,
       }),
-    ]);
-    expect(manifestJSONParser.isValid).toEqual(true);
-  });
-
-  it('should warn when gecko_android is set along with manifest_version 3', () => {
-    const addonLinter = new Linter({ _: ['bar'] });
-    const json = validManifestJSON({
-      browser_specific_settings: {
-        gecko: { id: 'test@ext' },
-        gecko_android: {},
-      },
-      manifest_version: 3,
-    });
-
-    const manifestJSONParser = new ManifestJSONParser(
-      json,
-      addonLinter.collector
-    );
-
-    const { warnings } = addonLinter.collector;
-    expect(warnings).toEqual([
-      expect.objectContaining(messages.MANIFEST_V3_FIREFOX_ANDROID_LIMITATIONS),
     ]);
     expect(manifestJSONParser.isValid).toEqual(true);
   });
@@ -1400,6 +1377,56 @@ describe('ManifestJSONParser', () => {
     }
   });
 
+  describe('optional only permissions', () => {
+    const OPTIONAL_ONLY_PERMISSIONS = ['userScripts', 'trialML'];
+
+    it.each(OPTIONAL_ONLY_PERMISSIONS)(
+      'should warn on optional-only permission "%s" requested as non-optional',
+      (permName) => {
+        const linter = new Linter({ _: ['bar'] });
+        const json = validManifestJSON({
+          permissions: ['tabs', permName],
+          browser_specific_settings: { gecko: { strict_max_version: '135.0' } },
+        });
+        const manifestJSONParser = new ManifestJSONParser(
+          json,
+          linter.collector
+        );
+        expect(manifestJSONParser.collector.warnings).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              code: 'MANIFEST_PERMISSIONS',
+              instancePath: '/permissions/1',
+              message: expect.stringMatching(
+                new RegExp(`Invalid permissions "${permName}"`)
+              ),
+            }),
+          ])
+        );
+        expect(linter.collector.errors).toEqual([]);
+        expect(manifestJSONParser.isValid).toEqual(false);
+      }
+    );
+
+    it.each(OPTIONAL_ONLY_PERMISSIONS)(
+      'should allow permission "%s" in optional_permissions',
+      (permName) => {
+        const linter = new Linter({ _: ['bar'] });
+        const json = validManifestJSON({
+          optional_permissions: ['tabs', permName],
+          browser_specific_settings: { gecko: { strict_max_version: '135.0' } },
+        });
+        const manifestJSONParser = new ManifestJSONParser(
+          json,
+          linter.collector
+        );
+        expect(linter.collector.warnings).toEqual([]);
+        expect(linter.collector.errors).toEqual([]);
+        expect(manifestJSONParser.isValid).toEqual(true);
+      }
+    );
+  });
+
   describe('name', () => {
     it('should extract a name', () => {
       // Type is always returned as PACKAGE_EXTENSION presently.
@@ -2382,6 +2409,57 @@ describe('ManifestJSONParser', () => {
       manifestJSONParser.selfHosted = true;
       expect(manifestJSONParser.isValid).toEqual(true);
       expect(addonLinter.collector.warnings.length).toBe(0);
+    });
+
+    it('emits an error when the update_url is defined in an enterprise add-on', () => {
+      const linter = new Linter({ _: ['bar'] });
+
+      const manifestJSONParser = new ManifestJSONParser(
+        JSON.stringify({
+          manifest_version: 2,
+          name: 'some enterprise add-on',
+          version: '1',
+          browser_specific_settings: {
+            gecko: {
+              id: '@test-id',
+              admin_install_only: true,
+              update_url: 'https://example.org',
+            },
+          },
+        }),
+        linter.collector,
+        { isEnterprise: true }
+      );
+
+      expect(manifestJSONParser.isValid).toEqual(false);
+      expect(linter.collector.warnings).toEqual([]);
+      expect(linter.collector.errors).toEqual([
+        expect.objectContaining(messages.MANIFEST_UPDATE_URL),
+      ]);
+    });
+
+    it('does not emit an error when the update_url is defined in a self-hosted add-on', () => {
+      const linter = new Linter({ _: ['bar'] });
+
+      const manifestJSONParser = new ManifestJSONParser(
+        JSON.stringify({
+          manifest_version: 2,
+          name: 'some unlisted add-on',
+          version: '1',
+          browser_specific_settings: {
+            gecko: {
+              id: '@test-id',
+              update_url: 'https://example.org',
+            },
+          },
+        }),
+        linter.collector,
+        { selfHosted: true }
+      );
+
+      expect(manifestJSONParser.isValid).toEqual(true);
+      expect(linter.collector.warnings).toEqual([]);
+      expect(linter.collector.errors).toEqual([]);
     });
   });
 
@@ -4202,52 +4280,6 @@ describe('ManifestJSONParser', () => {
     });
   });
 
-  describe('sitepermission', () => {
-    it('supports simple valid sitepermission', () => {
-      const linter = new Linter({ _: ['bar'] });
-      const json = validSitePermissionManifestJSON();
-      const manifestJSONParser = new ManifestJSONParser(json, linter.collector);
-      expect(manifestJSONParser.isValid).toEqual(true);
-    });
-
-    it('detects invalid sitepermission (more than one install_origin)', () => {
-      const linter = new Linter({ _: ['bar'] });
-      const json = validSitePermissionManifestJSON({
-        install_origins: ['https://website1.com', 'https://website2.com'],
-      });
-      const manifestJSONParser = new ManifestJSONParser(json, linter.collector);
-      expect(linter.collector.errors).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            code: messages.JSON_INVALID.code,
-            message: '"/install_origins" must NOT have more than 1 items',
-            instancePath: '/install_origins',
-          }),
-        ])
-      );
-      expect(manifestJSONParser.isValid).toEqual(false);
-    });
-
-    it('detects invalid sitepermission (invalid site_permissions value)', () => {
-      const linter = new Linter({ _: ['bar'] });
-      const json = validSitePermissionManifestJSON({
-        site_permissions: ['midi', 'not_a_valid_webapi_name'],
-      });
-      const manifestJSONParser = new ManifestJSONParser(json, linter.collector);
-      expect(linter.collector.errors).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            code: messages.JSON_INVALID.code,
-            message:
-              '"/site_permissions/1" is not a valid key or has invalid extra properties',
-            instancePath: '/site_permissions/1',
-          }),
-        ])
-      );
-      expect(manifestJSONParser.isValid).toEqual(false);
-    });
-  });
-
   describe('homepage_url', () => {
     function testHomepageUrl(homepage_url, expectValid) {
       const addonLinter = new Linter({ _: ['bar'] });
@@ -5455,5 +5487,246 @@ describe('ManifestJSONParser', () => {
         code: messages.APPLICATIONS_INVALID.code,
       });
     });
+  });
+
+  describe('incognito', () => {
+    it('emits a warning when incognito:split is used', () => {
+      const linter = new Linter({ _: ['bar'] });
+
+      const manifestJSONParser = new ManifestJSONParser(
+        JSON.stringify({
+          manifest_version: 2,
+          name: 'some name',
+          version: '1',
+          incognito: 'split',
+        }),
+        linter.collector
+      );
+
+      expect(manifestJSONParser.isValid).toEqual(true);
+      expect(linter.collector.errors).toEqual([]);
+      expect(linter.collector.warnings).toEqual([
+        expect.objectContaining(messages.INCOGNITO_SPLIT_UNSUPPORTED),
+      ]);
+    });
+  });
+
+  describe('admin_install_only', () => {
+    it.each([
+      {
+        manifest_version: 2,
+        applications: { gecko: { id: '@test-id', admin_install_only: true } },
+      },
+      {
+        manifest_version: 2,
+        applications: { gecko: { id: '@test-id', admin_install_only: false } },
+      },
+      {
+        manifest_version: 2,
+        browser_specific_settings: {
+          gecko: { id: '@test-id', admin_install_only: true },
+        },
+      },
+      {
+        manifest_version: 2,
+        browser_specific_settings: {
+          gecko: { id: '@test-id', admin_install_only: false },
+        },
+      },
+      {
+        manifest_version: 2,
+        browser_specific_settings: {
+          gecko: { id: '@test-id', admin_install_only: false },
+          gecko_android: { strict_min_version: '123.0' },
+        },
+      },
+      {
+        manifest_version: 3,
+        browser_specific_settings: {
+          gecko: { id: '@test-id', admin_install_only: true },
+        },
+      },
+      {
+        manifest_version: 3,
+        browser_specific_settings: {
+          gecko: { id: '@test-id', admin_install_only: false },
+        },
+      },
+      {
+        manifest_version: 3,
+        browser_specific_settings: {
+          gecko: { id: '@test-id', admin_install_only: false },
+          gecko_android: { strict_min_version: '123.0' },
+        },
+      },
+    ])(
+      'emits an error when the admin_install_only flag is present - %o',
+      (manifestProps) => {
+        const linter = new Linter({ _: ['bar'] });
+
+        const manifestJSONParser = new ManifestJSONParser(
+          JSON.stringify({
+            name: 'some name',
+            version: '1',
+            ...manifestProps,
+          }),
+          linter.collector
+        );
+
+        expect(manifestJSONParser.isValid).toEqual(false);
+        if (manifestProps.applications) {
+          expect(linter.collector.warnings).toEqual([
+            expect.objectContaining(messages.APPLICATIONS_DEPRECATED),
+          ]);
+        } else {
+          expect(linter.collector.warnings).toEqual([]);
+        }
+        expect(linter.collector.errors).toEqual([
+          expect.objectContaining(messages.ADMIN_INSTALL_ONLY_PROP_RESERVED),
+        ]);
+      }
+    );
+
+    it('emits an error when the enterprise option is false', () => {
+      const linter = new Linter({ _: ['bar'] });
+
+      const manifestJSONParser = new ManifestJSONParser(
+        JSON.stringify({
+          manifest_version: 2,
+          name: 'some name',
+          version: '1',
+          browser_specific_settings: {
+            gecko: { id: '@test-id', admin_install_only: true },
+          },
+        }),
+        linter.collector,
+        { isEnterprise: false }
+      );
+
+      expect(manifestJSONParser.isValid).toEqual(false);
+      expect(linter.collector.warnings).toEqual([]);
+      expect(linter.collector.errors).toEqual([
+        expect.objectContaining(messages.ADMIN_INSTALL_ONLY_PROP_RESERVED),
+      ]);
+    });
+
+    it('does not emit an error when the enterprise option is passed', () => {
+      const linter = new Linter({ _: ['bar'] });
+
+      const manifestJSONParser = new ManifestJSONParser(
+        JSON.stringify({
+          manifest_version: 2,
+          name: 'some name',
+          version: '1',
+          browser_specific_settings: {
+            gecko: { id: '@test-id', admin_install_only: true },
+          },
+        }),
+        linter.collector,
+        { isEnterprise: true }
+      );
+
+      expect(manifestJSONParser.isValid).toEqual(true);
+      expect(linter.collector.warnings).toEqual([]);
+      expect(linter.collector.errors).toEqual([]);
+    });
+
+    it('emits an error when the enterprise option is passed but the value is false', () => {
+      const linter = new Linter({ _: ['bar'] });
+
+      const manifestJSONParser = new ManifestJSONParser(
+        JSON.stringify({
+          manifest_version: 2,
+          name: 'some name',
+          version: '1',
+          browser_specific_settings: {
+            gecko: { id: '@test-id', admin_install_only: false },
+          },
+        }),
+        linter.collector,
+        { isEnterprise: true }
+      );
+
+      expect(manifestJSONParser.isValid).toEqual(false);
+      expect(linter.collector.warnings).toEqual([]);
+      expect(linter.collector.errors).toEqual([
+        expect.objectContaining(messages.ADMIN_INSTALL_ONLY_REQUIRED),
+      ]);
+    });
+
+    it('emits an error when the enterprise option is passed and the flag is set in applications', () => {
+      const linter = new Linter({ _: ['bar'] });
+
+      const manifestJSONParser = new ManifestJSONParser(
+        JSON.stringify({
+          manifest_version: 2,
+          name: 'some name',
+          version: '1',
+          applications: {
+            gecko: { id: '@test-id', admin_install_only: true },
+          },
+        }),
+        linter.collector,
+        { isEnterprise: true }
+      );
+
+      expect(manifestJSONParser.isValid).toEqual(false);
+      expect(linter.collector.warnings).toEqual([
+        expect.objectContaining(messages.APPLICATIONS_DEPRECATED),
+      ]);
+      expect(linter.collector.errors).toEqual([
+        expect.objectContaining(messages.ADMIN_INSTALL_ONLY_REQUIRED),
+      ]);
+    });
+
+    it('emits an error when the enterprise option is passed, the flag is set in applications, and bss is defined', () => {
+      const linter = new Linter({ _: ['bar'] });
+
+      const manifestJSONParser = new ManifestJSONParser(
+        JSON.stringify({
+          manifest_version: 2,
+          name: 'some name',
+          version: '1',
+          browser_specific_settings: {
+            gecko: { id: '@test-id' },
+          },
+          applications: {
+            gecko: { admin_install_only: true },
+          },
+        }),
+        linter.collector,
+        { isEnterprise: true }
+      );
+
+      expect(manifestJSONParser.isValid).toEqual(false);
+      expect(linter.collector.warnings).toEqual([
+        expect.objectContaining(messages.IGNORED_APPLICATIONS_PROPERTY),
+      ]);
+      expect(linter.collector.errors).toEqual([
+        expect.objectContaining(messages.ADMIN_INSTALL_ONLY_REQUIRED),
+      ]);
+    });
+
+    it.each([true, false])(
+      'sets selfHosted to true when isEnterprise is true, even if selfHosted is %s',
+      (selfHosted) => {
+        const linter = new Linter({ _: ['bar'] });
+
+        const manifestJSONParser = new ManifestJSONParser(
+          JSON.stringify({
+            manifest_version: 3,
+            name: 'some name',
+            version: '1',
+            browser_specific_settings: {
+              gecko: { admin_install_only: true },
+            },
+          }),
+          linter.collector,
+          { isEnterprise: true, selfHosted }
+        );
+
+        expect(manifestJSONParser.selfHosted).toEqual(true);
+      }
+    );
   });
 });

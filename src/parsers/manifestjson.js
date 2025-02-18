@@ -1,7 +1,7 @@
 /* eslint-disable import/namespace */
 import path from 'path';
 
-import RJSON from 'relaxed-json';
+import RJSON from '@fregante/relaxed-json';
 import { oneLine } from 'common-tags';
 import getImageSize from 'image-size';
 import upath from 'upath';
@@ -13,7 +13,6 @@ import {
   validateAddon,
   validateDictionary,
   validateLangPack,
-  validateSitePermission,
   validateStaticTheme,
 } from 'schema/validator';
 import {
@@ -95,6 +94,7 @@ export default class ManifestJSONParser extends JSONParser {
       schemaValidatorOptions,
       io = null,
       isAlreadySigned = false,
+      isEnterprise = getDefaultConfigValue('enterprise'),
       restrictedPermissions = RESTRICTED_PERMISSIONS,
     } = {}
   ) {
@@ -112,7 +112,10 @@ export default class ManifestJSONParser extends JSONParser {
       };
     } else {
       // We've parsed the JSON; now we can validate the manifest.
-      this.selfHosted = selfHosted;
+
+      // --enterprise implies --self-hosted since we cannot host enterprise
+      // add-ons on AMO.
+      this.selfHosted = selfHosted || isEnterprise;
       this.schemaValidatorOptions = schemaValidatorOptions;
 
       const hasManifestKey = (key) =>
@@ -121,7 +124,6 @@ export default class ManifestJSONParser extends JSONParser {
       this.isStaticTheme = false;
       this.isLanguagePack = false;
       this.isDictionary = false;
-      this.isSitePermission = false;
 
       // Keep the addon type detection in sync with the most updated logic
       // used on the Firefox side, as defined in ExtensionData parseManifest
@@ -132,12 +134,11 @@ export default class ManifestJSONParser extends JSONParser {
         this.isLanguagePack = true;
       } else if (hasManifestKey('dictionaries')) {
         this.isDictionary = true;
-      } else if (hasManifestKey('site_permissions')) {
-        this.isSitePermission = true;
       }
 
       this.io = io;
       this.isAlreadySigned = isAlreadySigned;
+      this.isEnterpriseAddon = isEnterprise;
       this.isPrivilegedAddon = this.schemaValidatorOptions?.privileged ?? false;
       this.restrictedPermissions = restrictedPermissions;
       this._validate();
@@ -456,8 +457,6 @@ export default class ManifestJSONParser extends JSONParser {
       validate = validateLangPack;
     } else if (this.isDictionary) {
       validate = validateDictionary;
-    } else if (this.isSitePermission) {
-      validate = validateSitePermission;
     }
 
     this.isValid = validate(this.parsedJSON, this.schemaValidatorOptions);
@@ -520,13 +519,23 @@ export default class ManifestJSONParser extends JSONParser {
       };
     }
 
-    if (
-      this.parsedJSON.manifest_version >= 3 &&
-      this.parsedJSON.browser_specific_settings?.gecko_android
+    // We only want `admin_install_only` to be set in `bss` when `--enterprise`
+    // is set, otherwise we don't want the flag _at all_, which includes both
+    // `bss` and `applications`.
+    if (this.isEnterpriseAddon) {
+      if (
+        this.parsedJSON.browser_specific_settings?.gecko?.admin_install_only !==
+        true
+      ) {
+        this.collector.addError(messages.ADMIN_INSTALL_ONLY_REQUIRED);
+        this.isValid = false;
+      }
+    } else if (
+      typeof this.parsedJSON.applications?.gecko?.admin_install_only !==
+      'undefined'
     ) {
-      this.collector.addWarning(
-        messages.MANIFEST_V3_FIREFOX_ANDROID_LIMITATIONS
-      );
+      this.collector.addError(messages.ADMIN_INSTALL_ONLY_PROP_RESERVED);
+      this.isValid = false;
     }
 
     if (this.parsedJSON.content_security_policy != null) {
@@ -649,10 +658,8 @@ export default class ManifestJSONParser extends JSONParser {
     }
 
     if (
-      !this.selfHosted &&
-      this.parsedJSON.applications &&
-      this.parsedJSON.applications.gecko &&
-      this.parsedJSON.applications.gecko.update_url
+      (!this.selfHosted || this.isEnterpriseAddon) &&
+      this.parsedJSON.applications?.gecko?.update_url
     ) {
       if (this.isPrivilegedAddon) {
         // We cannot know whether a privileged add-on will be listed or
@@ -790,6 +797,7 @@ export default class ManifestJSONParser extends JSONParser {
     this.validateExtensionID();
     this.validateHiddenAddon();
     this.validateDeprecatedBrowserStyle();
+    this.validateIncognito();
   }
 
   /**
@@ -1235,6 +1243,12 @@ export default class ManifestJSONParser extends JSONParser {
         this.isValid = false;
         return;
       }
+    }
+  }
+
+  validateIncognito() {
+    if (this.parsedJSON.incognito === 'split') {
+      this.collector.addWarning(messages.INCOGNITO_SPLIT_UNSUPPORTED);
     }
   }
 

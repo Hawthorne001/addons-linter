@@ -69,9 +69,6 @@ const linter = linter.createInstance({
     output: 'none',
     boring: false,
     selfHosted: false,
-    // Lint only the selected files
-    //   scanFile: ['path/...', ...]
-    //
     // Exclude files:
     shouldScanFile: (fileName) => true,
   },
@@ -92,7 +89,6 @@ linter.run()
   summary: {
     error, notice, warning,
   },
-  scanFile,
   count,
   error: [{
     type: "error",
@@ -192,16 +188,6 @@ We use [pino](https://github.com/pinojs/pino) for logging:
 ### Prettier
 
 We use [Prettier](https://prettier.io/) to automatically format our JavaScript code and stop all the on-going debates over styles. As a developer, you have to run it (with `npm run prettier-dev`) before submitting a Pull Request.
-
-### L10n extraction
-
-The localization process is very similar to [how we do it for addons-frontend](https://addons-frontend.readthedocs.io/en/latest/i18n/#updating-locales): locales are always updated on the `master` branch, any PR that changes or introduces new localized strings should be merged on `master` first.
-
-In order to update the locales (when new localized strings are added to the codebase), run the following script from the `master` branch. This script automates _all_ the steps described in the addons-frontend docs, without any confirmation step.
-
-```
-./scripts/run-l10n-extraction
-```
 
 ## Architecture
 

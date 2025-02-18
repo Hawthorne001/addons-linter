@@ -173,7 +173,7 @@
             },
             "openerTabId": {
               "type": "integer",
-              "minimum": 0,
+              "minimum": -1,
               "description": "The ID of the tab that opened this tab. If specified, the opener tab must be in the same window as the newly created tab."
             },
             "cookieStoreId": {
@@ -385,7 +385,7 @@
             },
             "openerTabId": {
               "type": "integer",
-              "minimum": 0,
+              "minimum": -1,
               "description": "The ID of the tab that opened this tab. If specified, the opener tab must be in the same window as this tab."
             },
             "screen": {
@@ -532,7 +532,7 @@
             },
             "openerTabId": {
               "type": "integer",
-              "minimum": 0,
+              "minimum": -1,
               "description": "The ID of the tab that opened this tab. If specified, the opener tab must be in the same window as this tab."
             },
             "loadReplace": {
@@ -809,9 +809,10 @@
     {
       "name": "captureVisibleTab",
       "type": "function",
-      "description": "Captures an area of the currently active tab in the specified window. You must have $(topic:declare_permissions)[&lt;all_urls&gt;] permission to use this method.",
+      "description": "Captures an area of the currently active tab in the specified window. You must have &lt;all_urls&gt; or activeTab permission to use this method.",
       "permissions": [
-        "<all_urls>"
+        "<all_urls>",
+        "activeTab"
       ],
       "async": "callback",
       "parameters": [
@@ -1766,7 +1767,7 @@
         },
         "openerTabId": {
           "type": "integer",
-          "minimum": 0,
+          "minimum": -1,
           "description": "The ID of the tab that opened this tab, if any. This property is only present if the opener tab still exists."
         },
         "highlighted": {

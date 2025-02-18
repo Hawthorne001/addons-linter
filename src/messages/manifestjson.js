@@ -23,19 +23,6 @@ export const MANIFEST_FIELD_INVALID = {
   file: MANIFEST_JSON,
 };
 
-export const MANIFEST_V3_FIREFOX_ANDROID_LIMITATIONS = {
-  code: 'MANIFEST_V3_FIREFOX_ANDROID_LIMITATIONS',
-  message: i18n._(
-    'Manifest Version 3 is not fully supported on Firefox for Android.'
-  ),
-  // TODO(#5110): replace description with a message including a shorted
-  // link to a documentation page.
-  description: i18n._(
-    'Manifest Version 3 is not fully supported on Firefox for Android.'
-  ),
-  file: MANIFEST_JSON,
-};
-
 export const MANIFEST_FIELD_PRIVILEGEDONLY = 'MANIFEST_FIELD_PRIVILEGEDONLY';
 export function manifestFieldPrivilegedOnly(fieldName) {
   return {
@@ -821,5 +808,31 @@ export const VERSION_FORMAT_INVALID = {
     numbers separated with dots. Each number should have up to 9 digits and
     leading zeros are not allowed. Letters are no longer allowed. See
     https://mzl.la/3h3mCRu (MDN Docs) for more information.`),
+  file: MANIFEST_JSON,
+};
+
+export const INCOGNITO_SPLIT_UNSUPPORTED = {
+  code: 'INCOGNITO_SPLIT_UNSUPPORTED',
+  message: i18n._('incognito "split" is unsupported.'),
+  description: i18n._(`The incognito "split" value is unsupported and will be
+    treated as "not_allowed" in Firefox. Remove the key from the manifest
+    file, if your extension is compatible with Firefox's private browsing mode.`),
+  file: MANIFEST_JSON,
+};
+
+export const ADMIN_INSTALL_ONLY_PROP_RESERVED = {
+  code: 'ADMIN_INSTALL_ONLY_PROP_RESERVED',
+  message: i18n._('The "admin_install_only" property is reserved.'),
+  description: i18n._(`The "admin_install_only" property is reserved and can
+    only be used in enterprise add-ons.`),
+  file: MANIFEST_JSON,
+};
+
+export const ADMIN_INSTALL_ONLY_REQUIRED = {
+  code: 'ADMIN_INSTALL_ONLY_REQUIRED',
+  message: i18n._(`"/browser_specific_settings/gecko/admin_install_only"
+    property must be set to "true".`),
+  description: i18n._(`The "admin_install_only" property must be set to "true"
+    in an enterprise add-on.`),
   file: MANIFEST_JSON,
 };
